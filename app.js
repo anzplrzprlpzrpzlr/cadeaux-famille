@@ -1,4 +1,4 @@
-import { createStore } from './store.js?v=4';
+import { createStore } from './store.js?v=5';
 
 const CATS = {
   petit: 'Petit plaisir',
@@ -68,6 +68,11 @@ async function squareJpeg(file, size = 320) {
 
 const shortDate = (iso) => new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
 
+const EUROS = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 2 });
+const hasPrice = (g) => g.price !== null && g.price !== undefined && g.price !== '';
+// Montant indicatif correspondant à un pourcentage d'un gros cadeau, ex. « ≈ 150 € ».
+const shareOf = (g, percent) => (hasPrice(g) ? ` ≈ ${EUROS.format(Math.round((Number(g.price) * percent) / 100))}` : '');
+
 function occasionSelect(selected = 'noel') {
   const options = Object.entries(OCCASIONS)
     .map(([k, label]) => `<option value="${k}" ${k === selected ? 'selected' : ''}>${label}</option>`).join('');
@@ -98,19 +103,24 @@ function saveMe(id) {
 
 // ---------- données ----------
 
+let loadSeq = 0;
+
 async function load() {
+  // Si deux rechargements se chevauchent, seul le plus récent met à jour l'écran.
+  const seq = ++loadSeq;
   try {
-    state.people = await state.store.listPeople();
-    if (state.me && !person(state.me)) { state.me = null; saveMe(null); }
     const r = route();
-    if (state.me && r.view === 'list') state.gifts = await state.store.listGifts(r.id);
-    if (state.me && r.view === 'home') {
-      [state.mine, state.feed] = await Promise.all([
-        state.store.listMyContributions(state.me),
-        state.store.listAllGifts(),
-      ]);
-    }
+    const [people, gifts, mine, feed] = await Promise.all([
+      state.store.listPeople(),
+      state.me && r.view === 'list' ? state.store.listGifts(r.id) : state.gifts,
+      state.me && r.view === 'home' ? state.store.listMyContributions(state.me) : state.mine,
+      state.me && r.view === 'home' ? state.store.listAllGifts() : state.feed,
+    ]);
+    if (seq !== loadSeq) return;
+    Object.assign(state, { people, gifts, mine, feed });
+    if (state.me && !person(state.me)) { state.me = null; saveMe(null); }
   } catch (e) {
+    if (seq !== loadSeq) return;
     showFlash(e.message, true);
   }
   state.loading = false;
@@ -238,6 +248,10 @@ function giftForm(g) {
       <input name="title" placeholder="Nom du cadeau" maxlength="200" required value="${esc(g?.title)}">
       <textarea name="description" placeholder="Description (facultatif)" maxlength="2000" rows="2">${esc(g?.description)}</textarea>
       <input name="link" placeholder="Lien (facultatif)" maxlength="2000" value="${esc(g?.link)}">
+      <label class="price-field">
+        <input name="price" type="number" inputmode="decimal" min="0" max="99999" step="0.01" placeholder="Prix indicatif (facultatif)" value="${g && hasPrice(g) ? esc(g.price) : ''}">
+        <span>€</span>
+      </label>
       <div class="cats">${cats}</div>
       <div class="actions">
         <button class="primary">${g ? 'Enregistrer' : 'Ajouter à ma liste'}</button>
@@ -249,7 +263,10 @@ function giftForm(g) {
 function giftBody(g) {
   const url = safeUrl(g.link);
   return `
-    <div class="gift-head"><span class="tag cat-${g.category}"><span class="swatch"></span>${CATS[g.category]}</span></div>
+    <div class="gift-head">
+      <span class="tag cat-${g.category}"><span class="swatch"></span>${CATS[g.category]}</span>
+      ${hasPrice(g) ? `<span class="price" title="Prix indicatif">≈ ${EUROS.format(Number(g.price))}</span>` : ''}
+    </div>
     <h3>${esc(g.title)}</h3>
     ${g.description ? `<p class="desc">${esc(g.description)}</p>` : ''}
     ${url ? `<a class="ext" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Voir le lien ↗</a>` : ''}`;
@@ -315,8 +332,8 @@ function theirGift(g, head = '') {
   } else {
     status = `
       <div class="progress" aria-label="${total} % financé"><span style="width:${Math.min(total, 100)}%"></span></div>
-      <div class="progress-label">${total} % financé${remaining ? ` · reste ${remaining} %` : ' ✅'}</div>
-      ${contribs.length ? `<div class="givers">${contribs.map((c) => bubble(c.person_id, `${c.percent} % · ${OCCASIONS[c.occasion]}`)).join('')}</div>` : ''}`;
+      <div class="progress-label">${total} % financé${remaining ? ` · reste ${remaining} %${shareOf(g, remaining)}` : ' ✅'}</div>
+      ${contribs.length ? `<div class="givers">${contribs.map((c) => bubble(c.person_id, `${c.percent} %${shareOf(g, c.percent)} · ${OCCASIONS[c.occasion]}`)).join('')}</div>` : ''}`;
     const max = remaining + (mine?.percent ?? 0);
     if (max > 0) {
       actions = `
@@ -362,6 +379,7 @@ app.addEventListener('submit', (e) => {
       title: data.title.trim(),
       description: data.description.trim() || null,
       link: data.link.trim() || null,
+      price: data.price === '' ? null : Number(data.price),
       category: data.category,
     };
     if (form.dataset.id) gift.id = form.dataset.id;

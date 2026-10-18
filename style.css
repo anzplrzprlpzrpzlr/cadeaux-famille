@@ -25,13 +25,13 @@ main { position: relative; z-index: 1; max-width: 760px; margin: 0 auto; padding
 /* ---- décor de Noël ---- */
 .decor-garland {
   position: absolute; top: 0; left: 0; right: 0; height: 70px;
-  background: url(decor/garland.svg?v=4) repeat-x top left;
+  background: url(decor/garland.svg?v=5) repeat-x top left;
   pointer-events: none;
 }
 .decor-side {
   display: none;
   position: fixed; top: 0; width: 90px; height: 340px;
-  background: url(decor/side.svg?v=4) no-repeat top;
+  background: url(decor/side.svg?v=5) no-repeat top;
   pointer-events: none;
 }
 .decor-side.left { left: 8px; }
@@ -174,3 +174,10 @@ button.link { border: none; background: none; padding: 0; color: var(--muted); t
   .person { width: calc(33.33% - 8px); }
   .inline { flex-direction: column; }
 }
+
+/* ---- prix indicatif ---- */
+.gift-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.price { font-weight: 700; font-size: .95rem; color: var(--text); white-space: nowrap; }
+.price-field { position: relative; display: block; }
+.price-field input { padding-right: 32px; }
+.price-field span { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); }
