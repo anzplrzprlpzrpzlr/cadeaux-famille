@@ -25,13 +25,13 @@ main { position: relative; z-index: 1; max-width: 760px; margin: 0 auto; padding
 /* ---- décor de Noël ---- */
 .decor-garland {
   position: absolute; top: 0; left: 0; right: 0; height: 70px;
-  background: url(decor/garland.svg?v=5) repeat-x top left;
+  background: url(decor/garland.svg?v=6) repeat-x top left;
   pointer-events: none;
 }
 .decor-side {
   display: none;
   position: fixed; top: 0; width: 90px; height: 340px;
-  background: url(decor/side.svg?v=5) no-repeat top;
+  background: url(decor/side.svg?v=6) no-repeat top;
   pointer-events: none;
 }
 .decor-side.left { left: 8px; }

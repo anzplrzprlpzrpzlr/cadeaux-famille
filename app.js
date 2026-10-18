@@ -1,4 +1,4 @@
-import { createStore } from './store.js?v=5';
+import { createStore } from './store.js?v=6';
 
 const CATS = {
   petit: 'Petit plaisir',
@@ -231,10 +231,18 @@ function feedGift(g) {
       <a href="#/liste/${g.owner_id}" title="Voir toute sa liste">${bubble(g.owner_id)}</a>
       <span class="muted">${shortDate(g.created_at)}</span>
     </div>`;
-  if (g.owner_id === state.me) {
-    return `<article class="gift cat-${g.category}">${head}${giftBody(g)}<p class="muted">C’est ta demande 🤫</p></article>`;
-  }
-  return theirGift(g, head);
+  return g.owner_id === state.me ? myGift(g, head, '<p class="muted">C’est ta demande 🤫</p>') : theirGift(g, head);
+}
+
+// Une demande de l'utilisateur connecté : lui seul peut la modifier ou la supprimer.
+function myGift(g, head = '', note = '') {
+  if (state.editingId === g.id) return `<article class="gift cat-${g.category}">${head}${giftForm(g)}</article>`;
+  return `<article class="gift cat-${g.category}">${head}${giftBody(g)}${note}
+      <div class="actions">
+        <button data-action="edit" data-id="${g.id}">Modifier</button>
+        <button class="danger" data-action="delete" data-id="${g.id}">Supprimer</button>
+      </div>
+    </article>`;
 }
 
 function giftForm(g) {
@@ -276,20 +284,12 @@ function sections(renderGift) {
   const html = Object.entries(CATS).map(([k, label]) => {
     const list = state.gifts.filter((g) => g.category === k);
     if (!list.length) return '';
-    return `<section class="cat-section"><h2 class="cat-title cat-${k}"><span class="swatch"></span>${label} <span class="muted">(${list.length})</span></h2>${list.map(renderGift).join('')}</section>`;
+    return `<section class="cat-section"><h2 class="cat-title cat-${k}"><span class="swatch"></span>${label} <span class="muted">(${list.length})</span></h2>${list.map((g) => renderGift(g)).join('')}</section>`;
   }).join('');
   return html || '<p class="muted center">Aucun cadeau dans cette liste pour le moment.</p>';
 }
 
 function viewMyList() {
-  const myGift = (g) => state.editingId === g.id
-    ? `<article class="gift cat-${g.category}">${giftForm(g)}</article>`
-    : `<article class="gift cat-${g.category}">${giftBody(g)}
-        <div class="actions">
-          <button data-action="edit" data-id="${g.id}">Modifier</button>
-          <button class="danger" data-action="delete" data-id="${g.id}">Supprimer</button>
-        </div>
-      </article>`;
   return `
     <section class="card">
       <h1>Ma liste</h1>
