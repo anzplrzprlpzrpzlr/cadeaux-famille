@@ -5,7 +5,12 @@ const CATS = {
   abordable: 'Abordable',
   gros: 'Gros cadeau',
 };
-const PALETTE = ['#e8590c', '#c2255c', '#7048e8', '#1971c2', '#0c8599', '#2b8a3e', '#e67700', '#862e9c', '#d6336c', '#5c940d'];
+const OCCASIONS = {
+  noel: '🎄 Noël',
+  anniversaire: '🎂 Anniversaire',
+  autre: '✨ Autre occasion',
+};
+const PALETTE =['#e8590c', '#c2255c', '#7048e8', '#1971c2', '#0c8599', '#2b8a3e', '#e67700', '#862e9c', '#d6336c', '#5c940d'];
 const ME_KEY = 'cadeaux.me';
 
 const app = document.getElementById('app');
@@ -25,6 +30,12 @@ function colorOf(id) {
 function bubble(id, extra = '') {
   const name = person(id)?.name ?? '?';
   return `<span class="bubble" style="--c:${colorOf(id)}"><span class="dot">${esc(name.trim()[0]?.toUpperCase())}</span>${esc(name)}${extra ? ` <b>${esc(extra)}</b>` : ''}</span>`;
+}
+
+function occasionSelect(selected = 'noel') {
+  const options = Object.entries(OCCASIONS)
+    .map(([k, label]) => `<option value="${k}" ${k === selected ? 'selected' : ''}>${label}</option>`).join('');
+  return `<select name="occasion" aria-label="Occasion">${options}</select>`;
 }
 
 function safeUrl(u) {
@@ -136,7 +147,7 @@ function viewHome() {
     <li>
       <span class="swatch cat-${c.gift.category}"></span>
       <a href="#/liste/${c.gift.owner_id}">${esc(c.gift.title)}</a>
-      <span class="muted">pour ${esc(person(c.gift.owner_id)?.name)}${c.gift.category === 'gros' ? ` · ma part : ${c.percent} %` : ''}</span>
+      <span class="muted">pour ${esc(person(c.gift.owner_id)?.name)} · ${OCCASIONS[c.occasion] ?? ''}${c.gift.category === 'gros' ? ` · ma part : ${c.percent} %` : ''}</span>
     </li>`).join('');
 
   return `
@@ -231,22 +242,28 @@ function theirGift(g) {
   let actions = '';
 
   if (g.category !== 'gros') {
-    if (!contribs.length) {
-      actions = `<button class="primary" data-action="offer" data-id="${g.id}">Je l’offre</button>`;
-    } else {
-      status = `<div class="givers"><span class="muted">Offert par</span>${contribs.map((c) => bubble(c.person_id)).join('')}</div>`;
-      if (mine) actions = `<button data-action="withdraw" data-id="${g.id}">Je ne l’offre plus</button>`;
+    if (!contribs.length || mine) {
+      actions = `
+        <form data-form="offer" data-id="${g.id}" class="share">
+          ${occasionSelect(mine?.occasion)}
+          ${mine ? '<button>Changer l’occasion</button>' : '<button class="primary">Je l’offre</button>'}
+        </form>`;
+    }
+    if (contribs.length) {
+      status = `<div class="givers"><span class="muted">Offert par</span>${contribs.map((c) => bubble(c.person_id, OCCASIONS[c.occasion])).join('')}</div>`;
+      if (mine) actions += `<button data-action="withdraw" data-id="${g.id}">Je ne l’offre plus</button>`;
     }
   } else {
     status = `
       <div class="progress" aria-label="${total} % financé"><span style="width:${Math.min(total, 100)}%"></span></div>
       <div class="progress-label">${total} % financé${remaining ? ` · reste ${remaining} %` : ' ✅'}</div>
-      ${contribs.length ? `<div class="givers">${contribs.map((c) => bubble(c.person_id, c.percent + ' %')).join('')}</div>` : ''}`;
+      ${contribs.length ? `<div class="givers">${contribs.map((c) => bubble(c.person_id, `${c.percent} % · ${OCCASIONS[c.occasion]}`)).join('')}</div>` : ''}`;
     const max = remaining + (mine?.percent ?? 0);
     if (max > 0) {
       actions = `
         <form data-form="share" data-id="${g.id}" class="share">
           <input type="number" name="percent" min="1" max="${max}" value="${mine ? mine.percent : remaining}" required aria-label="Pourcentage"> %
+          ${occasionSelect(mine?.occasion)}
           <button class="primary">${mine ? 'Modifier ma part' : 'Je participe'}</button>
         </form>`;
     }
@@ -268,7 +285,6 @@ app.addEventListener('click', (e) => {
   if (action === 'edit') { state.editingId = id; render(); }
   if (action === 'cancel-edit') { state.editingId = null; render(); }
   if (action === 'delete' && confirm('Supprimer ce cadeau ?')) act(() => state.store.deleteGift(id), 'Cadeau supprimé');
-  if (action === 'offer') act(() => state.store.contribute(id, state.me, 100), 'C’est noté, tu offres ce cadeau 🎉');
   if (action === 'withdraw') act(() => state.store.withdraw(id, state.me), 'Tu ne participes plus à ce cadeau');
 });
 
@@ -293,8 +309,11 @@ app.addEventListener('submit', (e) => {
     else gift.owner_id = state.me;
     act(async () => { await state.store.saveGift(gift); state.editingId = null; }, gift.id ? 'Cadeau modifié' : 'Cadeau ajouté');
   }
+  if (form.dataset.form === 'offer') {
+    act(() => state.store.contribute(form.dataset.id, state.me, 100, data.occasion), 'C’est noté, tu offres ce cadeau 🎉');
+  }
   if (form.dataset.form === 'share') {
-    act(() => state.store.contribute(form.dataset.id, state.me, parseInt(data.percent, 10)), 'Ta participation est enregistrée');
+    act(() => state.store.contribute(form.dataset.id, state.me, parseInt(data.percent, 10), data.occasion), 'Ta participation est enregistrée');
   }
 });
 

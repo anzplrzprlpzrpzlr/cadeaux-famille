@@ -30,12 +30,12 @@ async function supabaseStore(cfg) {
       check(await sb.from('people').insert({ name }).select('id, name').single()),
     listGifts: async (ownerId) =>
       check(await sb.from('gifts')
-        .select('*, contributions(person_id, percent, created_at)')
+        .select('*, contributions(person_id, percent, occasion, created_at)')
         .eq('owner_id', ownerId)
         .order('created_at')),
     listMyContributions: async (personId) =>
       check(await sb.from('contributions')
-        .select('percent, gift:gifts(id, title, category, owner_id)')
+        .select('percent, occasion, gift:gifts(id, title, category, owner_id)')
         .eq('person_id', personId)
         .order('created_at')),
     saveGift: async ({ id, ...fields }) =>
@@ -44,9 +44,9 @@ async function supabaseStore(cfg) {
         : await sb.from('gifts').insert(fields)),
     deleteGift: async (id) =>
       check(await sb.from('gifts').delete().eq('id', id)),
-    contribute: async (giftId, personId, percent) =>
+    contribute: async (giftId, personId, percent, occasion) =>
       check(await sb.from('contributions')
-        .upsert({ gift_id: giftId, person_id: personId, percent }, { onConflict: 'gift_id,person_id' })),
+        .upsert({ gift_id: giftId, person_id: personId, percent, occasion }, { onConflict: 'gift_id,person_id' })),
     withdraw: async (giftId, personId) =>
       check(await sb.from('contributions').delete().eq('gift_id', giftId).eq('person_id', personId)),
   };
@@ -104,7 +104,7 @@ function demoStore() {
       const db = read();
       return db.contributions
         .filter((c) => c.person_id === personId)
-        .map((c) => ({ percent: c.percent, gift: db.gifts.find((g) => g.id === c.gift_id) }));
+        .map((c) => ({ percent: c.percent, occasion: c.occasion, gift: db.gifts.find((g) => g.id === c.gift_id) }));
     },
     saveGift: async ({ id, ...fields }) => {
       const db = read();
@@ -123,14 +123,14 @@ function demoStore() {
       db.contributions = db.contributions.filter((c) => c.gift_id !== id);
       write(db);
     },
-    contribute: async (giftId, personId, percent) => {
+    contribute: async (giftId, personId, percent, occasion) => {
       const db = read();
       const gift = db.gifts.find((g) => g.id === giftId);
       if (!gift) throw new Error("Ce cadeau n'existe plus");
       const value = validateContribution(gift, db.contributions, personId, percent);
       const existing = db.contributions.find((c) => c.gift_id === giftId && c.person_id === personId);
-      if (existing) existing.percent = value;
-      else db.contributions.push({ gift_id: giftId, person_id: personId, percent: value, created_at: now() });
+      if (existing) Object.assign(existing, { percent: value, occasion });
+      else db.contributions.push({ gift_id: giftId, person_id: personId, percent: value, occasion, created_at: now() });
       write(db);
     },
     withdraw: async (giftId, personId) => {

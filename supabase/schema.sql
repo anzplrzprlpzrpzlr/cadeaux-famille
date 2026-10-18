@@ -83,3 +83,8 @@ alter table public.contributions enable row level security;
 create policy "acces ouvert" on public.people for all to anon, authenticated using (true) with check (true);
 create policy "acces ouvert" on public.gifts for all to anon, authenticated using (true) with check (true);
 create policy "acces ouvert" on public.contributions for all to anon, authenticated using (true) with check (true);
+
+-- Occasion à laquelle chaque personne compte offrir (ou financer sa part de) un cadeau.
+alter table public.contributions
+  add column occasion text not null default 'noel'
+  check (occasion in ('noel', 'anniversaire', 'autre'));
