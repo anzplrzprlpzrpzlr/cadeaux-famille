@@ -88,3 +88,13 @@ create policy "acces ouvert" on public.contributions for all to anon, authentica
 alter table public.contributions
   add column occasion text not null default 'noel'
   check (occasion in ('noel', 'anniversaire', 'autre'));
+
+-- Photos de profil : un fichier par personne dans le bucket public « avatars ».
+alter table public.people add column avatar_url text check (length(avatar_url) <= 500);
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('avatars', 'avatars', true, 2097152, array['image/jpeg', 'image/png', 'image/webp']);
+
+create policy "avatars lecture" on storage.objects for select to anon, authenticated using (bucket_id = 'avatars');
+create policy "avatars ajout" on storage.objects for insert to anon, authenticated with check (bucket_id = 'avatars');
+create policy "avatars remplacement" on storage.objects for update to anon, authenticated using (bucket_id = 'avatars') with check (bucket_id = 'avatars');

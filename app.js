@@ -14,7 +14,7 @@ const PALETTE =['#e8590c', '#c2255c', '#7048e8', '#1971c2', '#0c8599', '#2b8a3e'
 const ME_KEY = 'cadeaux.me';
 
 const app = document.getElementById('app');
-const state = { store: null, people: [], me: null, gifts: [], mine: [], editingId: null, loading: true, flash: null };
+const state = { store: null, people: [], me: null, gifts: [], feed: [], mine: [], editingId: null, loading: true, flash: null };
 
 // ---------- utilitaires ----------
 
@@ -27,10 +27,46 @@ function colorOf(id) {
   return PALETTE[h % PALETTE.length];
 }
 
+// Photo de profil si la personne en a mis une, sinon son initiale sur fond de couleur.
+function avatar(id, big = false) {
+  const p = person(id);
+  const cls = big ? 'dot big' : 'dot';
+  const url = p?.avatar_url;
+  if (url && (/^https:\/\//.test(url) || /^data:image\//.test(url))) return `<img class="${cls}" src="${esc(url)}" alt="">`;
+  return `<span class="${cls}">${esc(p?.name.trim()[0]?.toUpperCase() ?? '?')}</span>`;
+}
+
 function bubble(id, extra = '') {
   const name = person(id)?.name ?? '?';
-  return `<span class="bubble" style="--c:${colorOf(id)}"><span class="dot">${esc(name.trim()[0]?.toUpperCase())}</span>${esc(name)}${extra ? ` <b>${esc(extra)}</b>` : ''}</span>`;
+  return `<span class="bubble" style="--c:${colorOf(id)}">${avatar(id)}${esc(name)}${extra ? ` <b>${esc(extra)}</b>` : ''}</span>`;
 }
+
+function photoPicker() {
+  return `
+    <label class="photo-pick">
+      ${avatar(state.me, true)}
+      <span>📷 ${person(state.me)?.avatar_url ? 'Changer ma photo' : 'Ajouter ma photo'}</span>
+      <input type="file" accept="image/*" data-change="avatar" hidden>
+    </label>`;
+}
+
+// Recadre la photo en carré et la réduit, pour qu'elle reste légère à charger.
+async function squareJpeg(file, size = 320) {
+  let img;
+  try {
+    img = await createImageBitmap(file);
+  } catch {
+    throw new Error('Ce format de photo n’est pas pris en charge, essaie avec un JPEG ou un PNG');
+  }
+  const side = Math.min(img.width, img.height);
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  canvas.getContext('2d').drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, size, size);
+  return new Promise((resolve, reject) =>
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Impossible de préparer la photo'))), 'image/jpeg', 0.85));
+}
+
+const shortDate = (iso) => new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
 
 function occasionSelect(selected = 'noel') {
   const options = Object.entries(OCCASIONS)
@@ -68,7 +104,12 @@ async function load() {
     if (state.me && !person(state.me)) { state.me = null; saveMe(null); }
     const r = route();
     if (state.me && r.view === 'list') state.gifts = await state.store.listGifts(r.id);
-    if (state.me && r.view === 'home') state.mine = await state.store.listMyContributions(state.me);
+    if (state.me && r.view === 'home') {
+      [state.mine, state.feed] = await Promise.all([
+        state.store.listMyContributions(state.me),
+        state.store.listAllGifts(),
+      ]);
+    }
   } catch (e) {
     showFlash(e.message, true);
   }
@@ -121,7 +162,7 @@ function header() {
 function viewLogin() {
   const people = state.people.map((p) => `
     <button class="person" data-action="login" data-id="${p.id}" style="--c:${colorOf(p.id)}">
-      <span class="dot big">${esc(p.name.trim()[0].toUpperCase())}</span>${esc(p.name)}
+      ${avatar(p.id, true)}${esc(p.name)}
     </button>`).join('');
   return `
     <section class="card">
@@ -140,7 +181,7 @@ function viewHome() {
   const others = state.people.filter((p) => p.id !== state.me);
   const card = (p, label) => `
     <a class="person" href="#/liste/${p.id}" style="--c:${colorOf(p.id)}">
-      <span class="dot big">${esc(p.name.trim()[0].toUpperCase())}</span>${esc(label ?? p.name)}
+      ${avatar(p.id, true)}${esc(label ?? p.name)}
     </a>`;
 
   const mine = state.mine.filter((c) => c.gift).map((c) => `
@@ -153,7 +194,7 @@ function viewHome() {
   return `
     <section class="card">
       <h1>Bonjour ${esc(me.name)} 👋</h1>
-      <div class="people">${card(me, 'Ma liste')}</div>
+      <div class="people">${card(me, 'Ma liste')}${photoPicker()}</div>
     </section>
     <section class="card">
       <h2>Les listes de la famille</h2>
@@ -166,7 +207,24 @@ function viewHome() {
     <section class="card">
       <h2>Ce que j’offre</h2>
       ${mine ? `<ul class="mine">${mine}</ul>` : '<p class="muted">Tu ne t’es encore positionné·e sur aucun cadeau.</p>'}
+    </section>
+    <section>
+      <h2 class="feed-title">Toutes les envies de la famille</h2>
+      <p class="muted">Les dernières demandes en premier.</p>
+      ${state.feed.map(feedGift).join('') || '<p class="muted center">Personne n’a encore ajouté de cadeau.</p>'}
     </section>`;
+}
+
+function feedGift(g) {
+  const head = `
+    <div class="owner-line">
+      <a href="#/liste/${g.owner_id}" title="Voir toute sa liste">${bubble(g.owner_id)}</a>
+      <span class="muted">${shortDate(g.created_at)}</span>
+    </div>`;
+  if (g.owner_id === state.me) {
+    return `<article class="gift cat-${g.category}">${head}${giftBody(g)}<p class="muted">C’est ta demande 🤫</p></article>`;
+  }
+  return theirGift(g, head);
 }
 
 function giftForm(g) {
@@ -208,8 +266,8 @@ function sections(renderGift) {
 
 function viewMyList() {
   const myGift = (g) => state.editingId === g.id
-    ? `<article class="gift">${giftForm(g)}</article>`
-    : `<article class="gift">${giftBody(g)}
+    ? `<article class="gift cat-${g.category}">${giftForm(g)}</article>`
+    : `<article class="gift cat-${g.category}">${giftBody(g)}
         <div class="actions">
           <button data-action="edit" data-id="${g.id}">Modifier</button>
           <button class="danger" data-action="delete" data-id="${g.id}">Supprimer</button>
@@ -219,6 +277,7 @@ function viewMyList() {
     <section class="card">
       <h1>Ma liste</h1>
       <p class="muted">Tu ne vois pas qui t’offre quoi : c’est la surprise 🤫</p>
+      <div class="people">${photoPicker()}</div>
       ${giftForm(null)}
     </section>
     ${sections(myGift)}`;
@@ -233,7 +292,7 @@ function viewTheirList(owner) {
     ${sections(theirGift)}`;
 }
 
-function theirGift(g) {
+function theirGift(g, head = '') {
   const contribs = g.contributions ?? [];
   const total = contribs.reduce((sum, c) => sum + c.percent, 0);
   const mine = contribs.find((c) => c.person_id === state.me);
@@ -271,7 +330,7 @@ function theirGift(g) {
   }
 
   const taken = g.category === 'gros' ? total >= 100 : contribs.length > 0;
-  return `<article class="gift${taken ? ' taken' : ''}">${giftBody(g)}${status}<div class="actions">${actions}</div></article>`;
+  return `<article class="gift cat-${g.category}${taken ? ' taken' : ''}">${head}${giftBody(g)}${status}<div class="actions">${actions}</div></article>`;
 }
 
 // ---------- événements ----------
@@ -317,7 +376,15 @@ app.addEventListener('submit', (e) => {
   }
 });
 
-window.addEventListener('hashchange', () => { state.editingId = null; load(); });
+app.addEventListener('change', (e) => {
+  const input = e.target;
+  if (input.dataset.change !== 'avatar' || !input.files?.[0]) return;
+  const file = input.files[0];
+  input.closest('.photo-pick')?.classList.add('busy');
+  act(async () => state.store.setAvatar(state.me, await squareJpeg(file)), 'Ta photo est enregistrée 📸');
+});
+
+window.addEventListener('hashchange',() => { state.editingId = null; load(); });
 
 // Quand on revient sur l'onglet, on recharge pour voir ce que les autres ont réservé entre-temps.
 window.addEventListener('focus', () => {

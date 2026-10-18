@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="90" height="340" viewBox="0 0 90 340">
+  <defs>
+    <radialGradient id="red" cx="35%" cy="35%" r="75%"><stop offset="0" stop-color="#ff8787"/><stop offset="1" stop-color="#b02525"/></radialGradient>
+    <radialGradient id="gold" cx="35%" cy="35%" r="75%"><stop offset="0" stop-color="#ffec99"/><stop offset="1" stop-color="#d9480f"/></radialGradient>
+    <radialGradient id="green" cx="35%" cy="35%" r="75%"><stop offset="0" stop-color="#8ce99a"/><stop offset="1" stop-color="#2b8a3e"/></radialGradient>
+    <radialGradient id="blue" cx="35%" cy="35%" r="75%"><stop offset="0" stop-color="#a5d8ff"/><stop offset="1" stop-color="#1864ab"/></radialGradient>
+  </defs>
+  <g stroke="#9aa0a6" stroke-width="1">
+    <line x1="22" y1="0" x2="22" y2="110"/>
+    <line x1="58" y1="0" x2="58" y2="210"/>
+    <line x1="40" y1="0" x2="40" y2="300"/>
+    <line x1="76" y1="0" x2="76" y2="60"/>
+  </g>
+  <g fill="#d4a017">
+    <rect x="17" y="110" width="10" height="6" rx="1"/>
+    <rect x="53" y="210" width="10" height="6" rx="1"/>
+    <rect x="36" y="300" width="8" height="5" rx="1"/>
+    <rect x="72" y="60" width="8" height="5" rx="1"/>
+  </g>
+  <circle cx="22" cy="130" r="15" fill="url(#red)"/>
+  <circle cx="58" cy="227" r="12" fill="url(#gold)"/>
+  <circle cx="40" cy="314" r="10" fill="url(#blue)"/>
+  <circle cx="76" cy="73" r="9" fill="url(#green)"/>
+  <g fill="#fff" opacity=".7">
+    <ellipse cx="16.8" cy="124.8" rx="3.8" ry="2.7"/>
+    <ellipse cx="53.8" cy="222.8" rx="3" ry="2.2"/>
+    <ellipse cx="36.5" cy="310.5" rx="2.5" ry="1.8"/>
+    <ellipse cx="72.9" cy="69.9" rx="2.2" ry="1.6"/>
+  </g>
+</svg>

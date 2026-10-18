@@ -20,7 +20,23 @@ body {
   font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
-main { max-width: 760px; margin: 0 auto; padding: 0 16px 48px; }
+main { position: relative; z-index: 1; max-width: 760px; margin: 0 auto; padding: 52px 16px 48px; }
+
+/* ---- décor de Noël ---- */
+.decor-garland {
+  position: absolute; top: 0; left: 0; right: 0; height: 70px;
+  background: url(decor/garland.svg) repeat-x top left;
+  pointer-events: none;
+}
+.decor-side {
+  display: none;
+  position: fixed; top: 0; width: 90px; height: 340px;
+  background: url(decor/side.svg) no-repeat top;
+  pointer-events: none;
+}
+.decor-side.left { left: 8px; }
+.decor-side.right { right: 8px; transform: scaleX(-1); }
+@media (min-width: 1000px) { .decor-side { display: block; } }
 
 header {
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
@@ -60,6 +76,17 @@ h3 { font-size: 1.05rem; margin: 4px 0; }
   background: var(--c); color: #fff; font-size: .75rem; font-weight: 700;
 }
 .dot.big { width: 52px; height: 52px; font-size: 1.4rem; }
+img.dot { object-fit: cover; background: #eee; }
+
+.photo-pick {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  width: 104px; padding: 12px 6px; text-align: center;
+  border: 1px dashed var(--border); border-radius: var(--radius);
+  font-size: .85rem; color: var(--muted); cursor: pointer;
+  --c: var(--muted);
+}
+.photo-pick:hover { border-color: var(--accent); color: var(--accent); }
+.photo-pick.busy { opacity: .5; pointer-events: none; }
 
 .bubble {
   display: inline-flex; align-items: center; gap: 6px;
@@ -115,11 +142,7 @@ button.link { border: none; background: none; padding: 0; color: var(--muted); t
 }
 
 /* ---- cadeaux ---- */
-.gift { border-left: 5px solid var(--border); }
-.cat-section .gift { border-left-color: var(--cat, var(--border)); }
-.cat-section:has(.cat-petit) { --cat: var(--petit); }
-.cat-section:has(.cat-abordable) { --cat: var(--abordable); }
-.cat-section:has(.cat-gros) { --cat: var(--gros); }
+.gift { border-left: 5px solid var(--cat, var(--border)); }
 .gift.taken { background: #f8f6f3; }
 .gift.taken h3 { color: var(--muted); }
 .desc { margin: 4px 0; white-space: pre-wrap; }
@@ -132,6 +155,11 @@ button.link { border: none; background: none; padding: 0; color: var(--muted); t
 .share { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .share select { width: auto; padding: 8px 10px; }
 .share input { width: 80px; }
+
+.feed-title { margin: 28px 0 0; }
+.owner-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.owner-line a { text-decoration: none; color: inherit; }
+.owner-line a:hover .bubble { outline: 2px solid var(--c); }
 
 .mine { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
 .mine li { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

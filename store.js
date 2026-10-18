@@ -25,14 +25,26 @@ async function supabaseStore(cfg) {
   return {
     demo: false,
     listPeople: async () =>
-      check(await sb.from('people').select('id, name').order('name')),
+      check(await sb.from('people').select('id, name, avatar_url').order('name')),
     addPerson: async (name) =>
       check(await sb.from('people').insert({ name }).select('id, name').single()),
+    setAvatar: async (personId, blob) => {
+      const path = `${personId}.jpg`;
+      check(await sb.storage.from('avatars').upload(path, blob, { upsert: true, contentType: 'image/jpeg' }));
+      // Le paramètre v force les navigateurs à recharger la photo quand elle change.
+      const url = sb.storage.from('avatars').getPublicUrl(path).data.publicUrl + '?v=' + Date.now();
+      check(await sb.from('people').update({ avatar_url: url }).eq('id', personId));
+    },
     listGifts: async (ownerId) =>
       check(await sb.from('gifts')
         .select('*, contributions(person_id, percent, occasion, created_at)')
         .eq('owner_id', ownerId)
         .order('created_at')),
+    listAllGifts: async () =>
+      check(await sb.from('gifts')
+        .select('*, contributions(person_id, percent, occasion, created_at)')
+        .order('created_at', { ascending: false })
+        .limit(300)),
     listMyContributions: async (personId) =>
       check(await sb.from('contributions')
         .select('percent, occasion, gift:gifts(id, title, category, owner_id)')
@@ -94,10 +106,29 @@ function demoStore() {
       write(db);
       return p;
     },
+    setAvatar: async (personId, blob) => {
+      const db = read();
+      const p = db.people.find((x) => x.id === personId);
+      if (!p) throw new Error("Cette personne n'existe plus");
+      p.avatar_url = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('Impossible de lire la photo'));
+        reader.readAsDataURL(blob);
+      });
+      write(db);
+    },
     listGifts: async (ownerId) => {
       const db = read();
       return db.gifts
         .filter((g) => g.owner_id === ownerId)
+        .map((g) => ({ ...g, contributions: db.contributions.filter((c) => c.gift_id === g.id) }));
+    },
+    listAllGifts: async () => {
+      const db = read();
+      return db.gifts
+        .slice()
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))
         .map((g) => ({ ...g, contributions: db.contributions.filter((c) => c.gift_id === g.id) }));
     },
     listMyContributions: async (personId) => {
