@@ -1,4 +1,4 @@
-import { createStore } from './store.js';
+import { createStore } from './store.js?v=4';
 
 const CATS = {
   petit: 'Petit plaisir',
